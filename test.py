@@ -29,8 +29,8 @@ test_transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225])
 ])
 print('done2')
-train_data = dsets.ImageFolder('/Users/bryan/Desktop/CS_Project/FaceShape_Dataset/training_set/', train_transform)
-test_data = dsets.ImageFolder('/Users/bryan/Desktop/CS_Project/FaceShape_Dataset/testing_set/', test_transform)
+train_data = dsets.ImageFolder('../cs_project/FaceShape_Dataset/training_set/', train_transform)
+test_data = dsets.ImageFolder('../cs_project/FaceShape_Dataset/testing_set/', test_transform)
 
 print('done3')
 
@@ -71,7 +71,7 @@ model.fc = nn.Sequential(
     nn.Linear(10, 5)
 )
 
-# model = model.cuda()
+model = model.cuda()
 
 loss = nn.CrossEntropyLoss()
 optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
@@ -112,15 +112,15 @@ correct = 0
 total = 0
 
 for images, labels in test_loader:
-    # images = images.cuda()
-    images = images
+    images = images.cuda()
+    #images = images
     outputs = model(images)
 
     _, predicted = torch.max(outputs.data, 1)
 
     total += labels.size(0)
-    # correct += (predicted == labels.cuda()).sum()
-    correct += (predicted == labels).sum()
+    correct += (predicted == labels.cuda()).sum()
+    #correct += (predicted == labels).sum()
 
 print('Accuracy of test images: %f %%' % (100 * float(correct) / total))
 print('done6')
@@ -129,8 +129,8 @@ classes = ["Heart", "Oblong", "Oval", "Round", "Square"]
 
 images, labels = iter(test_loader).next()
 
-# outputs = model(images.cuda())
-outputs = model(images)
+outputs = model(images.cuda())
+#outputs = model(images)
 
 _, predicted = torch.max(outputs.data, 1)
 
