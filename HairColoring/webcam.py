@@ -1,12 +1,12 @@
 import cv2
 import torch
-# from models.quantization.modelv2 import QuantizableMobileHairNetV2
-# from utils.util import quantize_model
 import os
 import numpy as np
-from glob import glob
 import argparse
 from PIL import Image
+
+from HairColoring.models import modelv1
+from HairColoring.models import modelv2
 
 
 
@@ -30,24 +30,34 @@ def get_mask(image, net, size=224):
 
     return mask_cv2
 
-def load_model(model_path=None, quantize=False, device=torch.device('cpu')):
-    if not model_path:
-        model_path = f'param/quantized.pt' if quantize else f'param/best.pt'
-    print(f'[*] Load Model from {model_path}')
-    save_info = torch.load(model_path, map_location=device)
-    # save_info = {'model': net, 'state_dict': net.state_dict(), 'optimizer' : optimizer.state_dict()} 
+def load_model(model_path,  device=torch.device('cpu')):
 
-    if quantize or model_path.endswith('quantized.pt'):
-        net = torch.jit.load(model_path)
-    else:
-        save_info = torch.load(model_path, map_location=device)
-        net = save_info['model']
-        net.load_state_dict(save_info['state_dict'])
-        
+    print('check:', os.path.exists(model_path))
+    print(f'[*] Load Model from {model_path} / device: {device}')
+    # save_info = {'model': net, 'state_dict': net.state_dict(), 'optimizer' : optimizer.state_dict()}
+
+    net = modelv2.MobileHairNetV2()
+    net.load_state_dict(torch.load(model_path)['state_dict'])
+    net.cuda()
+
+    # save_info = torch.load(model_path, map_location=device)
+    # net = save_info['model']
+    # net.load_state_dict(save_info['state_dict'])
+
     return net
-    
 
-def alpha_image(image, mask, alpha=0.1):
+
+def alpha_image1(image, mask, alpha=0.1):
+    color = np.zeros((mask.shape[0], mask.shape[1], 3))
+    color[np.where(mask != 0)] = [0, 130, 255] # BGR
+    # color[np.where(mask != 0)] = [0, 200, 255] # blonde
+    alpha_hand = ((1 - alpha) * image + alpha * color).astype(np.uint8)
+    alpha_hand = cv2.bitwise_and(alpha_hand, alpha_hand, mask=mask)
+
+    # cv2.imshow('wetew',cv2.add(alpha_hand, image))
+    return cv2.add(alpha_hand, image)
+
+def alpha_image2(image, mask, alpha=0.1):
     color = np.zeros((mask.shape[0], mask.shape[1], 3))
     # color[np.where(mask != 0)] = [0, 130, 255] # BGR
     color[np.where(mask != 0)] = [0, 200, 255] # blonde
@@ -57,57 +67,53 @@ def alpha_image(image, mask, alpha=0.1):
     # cv2.imshow('wetew',cv2.add(alpha_hand, image))
     return cv2.add(alpha_hand, image)
 
-
 def string_to_array(img_path):
     img = Image.open(img_path)
     numpy_data = np.asarray(img)
 
     return numpy_data
 
+def main():
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--quantize', nargs='?', const=True, default=False, help='load and train quantizable model')
-    parser.add_argument('--model_path', default=None, help="path to saved model parameters")
-
-    args = parser.parse_args()
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() and not args.quantize else "cpu")
-    net = load_model(args.model_path, args.quantize, device)
-    cam = cv2.VideoCapture(0)
+        cam = cv2.VideoCapture(0)
 
 
+        if not cam.isOpened():
+            raise Exception("webcam is not detected")
 
-    ########################################################################################
-    # Image_path = '../HairColoring/sample_images/ME2.jpg'
-    # test_image = string_to_array(Image_path)
-    # # print(test_image.shape)
-    # # print('ok')
-    # mask = get_mask(test_image, net)
-    # alpha_image(test_image, mask)
-    # cv2.waitKey(0)
-    # # print('ok2')
-    ########################################################################################
+        while (True):
+            # ret : frame capture결과(boolean)
+            # frame : Capture한 frame
 
-    if not cam.isOpened():
-        raise Exception("webcam is not detected")
+            ret, frame = cam.read()
 
-    while (True):
-        # ret : frame capture결과(boolean)
-        # frame : Capture한 frame
+            if (ret):
+                mask = get_mask(frame, net)
+                add1 = alpha_image1(frame, mask)
+                add2 = alpha_image2(frame, mask)
 
-        ret, frame = cam.read()
+                both = np.concatenate((frame, add1, add2), axis=1)
 
-        if (ret):
-            mask = get_mask(frame, net)
-            add = alpha_image(frame, mask)
-            both = np.concatenate((frame, add), axis=1)
+                cv2.imshow('both', both)
+                # cv2.imshow('add', add)
+                # cv2.imshow('frame', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
-            cv2.imshow('both', both)
-            # cv2.imshow('add', add)
-            # cv2.imshow('frame', frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+        cam.release()
+        cv2.destroyAllWindows()
 
-    cam.release()
-    cv2.destroyAllWindows()
+
+
+
+print('+++', os.getcwd())
+
+# model_path = f'param/best.pt'
+model_path = 'jbk_yc.tar' # '../hair_coloring_best.pt'
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+net = load_model(model_path, device)
+
+print('탈출')
+
+# main()
