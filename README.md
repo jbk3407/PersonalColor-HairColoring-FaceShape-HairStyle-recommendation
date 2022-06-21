@@ -6,5 +6,6 @@
 
 
 ## Reference
-personal Color : https://github.com/starbucksdolcelatte/ShowMeTheColor \n
+personal Color : https://github.com/starbucksdolcelatte/ShowMeTheColor
+
 Hair Coloring : https://github.com/wonbeomjang/mobile-hair-segmentation-pytorch
